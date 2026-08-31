@@ -17,9 +17,10 @@ import { CalendarEvent } from "../types";
 
 interface DocumentInputPanelProps {
   onParseStart: () => void;
-  onParseSuccess: (summary: string, events: Omit<CalendarEvent, "id" | "createdAt">[]) => void;
+  onParseSuccess: (summary: string, events: (Omit<CalendarEvent, "id" | "createdAt"> & { suggestedMemberNames?: string[] })[]) => void;
   onParseError: (err: string) => void;
   isParsing: boolean;
+  teamMembers?: { id: string; name: string; role: string }[];
 }
 
 export const DocumentInputPanel: React.FC<DocumentInputPanelProps> = ({
@@ -27,6 +28,7 @@ export const DocumentInputPanel: React.FC<DocumentInputPanelProps> = ({
   onParseSuccess,
   onParseError,
   isParsing,
+  teamMembers,
 }) => {
   const [inputText, setInputText] = useState("");
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export const DocumentInputPanel: React.FC<DocumentInputPanelProps> = ({
           text: inputText,
           referenceDate: todayStr,
           userTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul",
+          teamMembers: teamMembers || [],
         }),
       });
 

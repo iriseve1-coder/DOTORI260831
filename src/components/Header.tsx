@@ -45,15 +45,15 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h1 className="text-xl font-bold text-white tracking-tight">
-                  DocToCal <span className="text-indigo-400 text-sm font-normal ml-1">AI Parser</span>
+                  DocToCal <span className="text-indigo-400 text-sm font-semibold ml-1">5인 공유 캘린더</span>
                 </h1>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-900/40 text-indigo-300 border border-indigo-500/30">
                   <Sparkles className="w-3 h-3 mr-1 text-indigo-400" />
-                  스마트 스케줄러
+                  실시간 협업
                 </span>
               </div>
               <p className="text-xs text-zinc-400">
-                문서 내용을 붙여넣으면 일정만 달력에 자동으로 파싱합니다
+                문서 내용을 붙여넣으면 일정만 파싱하여 5명이 함께 보고 실시간 저장합니다
               </p>
             </div>
           </div>

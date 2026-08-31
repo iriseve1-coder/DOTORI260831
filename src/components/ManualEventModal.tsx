@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { X, Calendar, Plus, Save } from "lucide-react";
-import { CalendarEvent, CategoryType, PriorityType } from "../types";
+import { X, Calendar, Plus, Save, Users, UserCheck, Check } from "lucide-react";
+import { CalendarEvent, CategoryType, PriorityType, TeamMember } from "../types";
 
 interface ManualEventModalProps {
   initialEvent?: CalendarEvent | null;
   defaultDate?: string; // YYYY-MM-DD
+  members: TeamMember[];
+  currentMemberId: string;
   onSave: (eventData: Omit<CalendarEvent, "id" | "createdAt">, id?: string) => void;
   onClose: () => void;
 }
@@ -12,10 +14,13 @@ interface ManualEventModalProps {
 export const ManualEventModal: React.FC<ManualEventModalProps> = ({
   initialEvent,
   defaultDate,
+  members,
+  currentMemberId,
   onSave,
   onClose,
 }) => {
   const today = defaultDate || new Date().toISOString().split("T")[0];
+  const currentMember = members.find((m) => m.id === currentMemberId) || members[0];
 
   const [title, setTitle] = useState(initialEvent?.title || "");
   const [startDate, setStartDate] = useState(
@@ -30,6 +35,27 @@ export const ManualEventModal: React.FC<ManualEventModalProps> = ({
   const [location, setLocation] = useState(initialEvent?.location || "");
   const [description, setDescription] = useState(initialEvent?.description || "");
   const [tagsInput, setTagsInput] = useState(initialEvent?.tags ? initialEvent.tags.join(", ") : "");
+  
+  // 5 Members Assignees state (default to current member if new event)
+  const [assignedMemberIds, setAssignedMemberIds] = useState<string[]>(
+    initialEvent?.assignedMembers && initialEvent.assignedMembers.length > 0
+      ? initialEvent.assignedMembers
+      : [currentMemberId]
+  );
+
+  const toggleMemberAssign = (id: string) => {
+    setAssignedMemberIds((prev) =>
+      prev.includes(id) ? prev.filter((mId) => mId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllMembers = () => {
+    if (assignedMemberIds.length === members.length) {
+      setAssignedMemberIds([currentMemberId]);
+    } else {
+      setAssignedMemberIds(members.map((m) => m.id));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +80,9 @@ export const ManualEventModal: React.FC<ManualEventModalProps> = ({
         location: location.trim() || undefined,
         description: description.trim() || undefined,
         tags: tags.length > 0 ? tags : undefined,
+        assignedMembers: assignedMemberIds.length > 0 ? assignedMemberIds : [currentMemberId],
+        createdById: initialEvent?.createdById || currentMember.id,
+        createdByName: initialEvent?.createdByName || currentMember.name,
       },
       initialEvent?.id
     );
@@ -71,9 +100,14 @@ export const ManualEventModal: React.FC<ManualEventModalProps> = ({
             <div className="w-8 h-8 rounded-lg bg-indigo-900/60 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
               <Calendar className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-bold text-white">
-              {initialEvent ? "일정 수정하기" : "새 일정 직접 추가"}
-            </h2>
+            <div>
+              <h2 className="text-base font-bold text-white">
+                {initialEvent ? "일정 수정하기" : "5인 공유 캘린더 새 일정"}
+              </h2>
+              <p className="text-[11px] text-zinc-400">
+                작성자: <span className="text-indigo-400 font-semibold">{currentMember.name}</span>
+              </p>
+            </div>
           </div>
 
           <button
@@ -85,7 +119,7 @@ export const ManualEventModal: React.FC<ManualEventModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs sm:text-sm">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs sm:text-sm max-h-[80vh] overflow-y-auto custom-scrollbar">
           
           {/* Title */}
           <div>
@@ -95,11 +129,58 @@ export const ManualEventModal: React.FC<ManualEventModalProps> = ({
             <input
               type="text"
               required
-              placeholder="예: 프로젝트 팀 회의, 정기 검진"
+              placeholder="예: 프로젝트 팀 회의, 디자인 핸드오프"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full p-2.5 bg-[#09090B] border border-[#3F3F46] rounded-xl text-zinc-200 focus:border-indigo-500 focus:outline-none"
             />
+          </div>
+
+          {/* 5-Member Assignee Selector */}
+          <div className="p-3 bg-[#18181B] rounded-xl border border-[#27272A] space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-zinc-300 flex items-center gap-1.5 text-xs">
+                <Users className="w-3.5 h-3.5 text-indigo-400" />
+                담당 팀원 배정 ({assignedMemberIds.length}명 선택됨)
+              </label>
+              <button
+                type="button"
+                onClick={handleSelectAllMembers}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
+              >
+                {assignedMemberIds.length === members.length ? "나만 선택" : "5명 전체 배정"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+              {members.map((member) => {
+                const isAssigned = assignedMemberIds.includes(member.id);
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => toggleMemberAssign(member.id)}
+                    className={`flex items-center space-x-2 p-2 rounded-lg border text-left transition-all ${
+                      isAssigned
+                        ? "bg-[#27272A] border-indigo-500/70 text-white shadow-xs"
+                        : "bg-[#09090B] border-[#27272A] text-zinc-400 hover:border-zinc-700"
+                    }`}
+                  >
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                      style={{ backgroundColor: member.colorHex }}
+                    >
+                      {member.name.slice(0, 1)}
+                    </div>
+                    <div className="truncate flex-1">
+                      <div className="font-semibold text-xs truncate">{member.name}</div>
+                      <div className="text-[10px] text-zinc-500 truncate">{member.role}</div>
+                    </div>
+                    {isAssigned && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* All Day Toggle */}
@@ -212,7 +293,7 @@ export const ManualEventModal: React.FC<ManualEventModalProps> = ({
             </label>
             <input
               type="text"
-              placeholder="예: 회의, 프로젝트A, 중요"
+              placeholder="예: 스프린트, 마일스톤, 중요"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               className="w-full p-2.5 bg-[#09090B] border border-[#3F3F46] rounded-xl text-zinc-200 focus:border-indigo-500 focus:outline-none"
@@ -233,7 +314,7 @@ export const ManualEventModal: React.FC<ManualEventModalProps> = ({
               className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold inline-flex items-center space-x-1.5 accent-glow transition-all"
             >
               <Save className="w-4 h-4" />
-              <span>{initialEvent ? "수정사항 저장" : "일정 저장하기"}</span>
+              <span>{initialEvent ? "수정사항 저장" : "5인 캘린더에 저장"}</span>
             </button>
           </div>
 

@@ -15,7 +15,7 @@ async function startServer() {
   // API endpoint to parse schedule from document text
   app.post("/api/parse-schedule", async (req, res) => {
     try {
-      const { text, referenceDate, userTimeZone } = req.body;
+      const { text, referenceDate, userTimeZone, teamMembers } = req.body;
 
       if (!text || typeof text !== "string" || !text.trim()) {
         return res.status(400).json({ error: "문서 내용을 입력해주세요." });
@@ -23,6 +23,9 @@ async function startServer() {
 
       const todayStr = referenceDate || new Date().toISOString().split("T")[0];
       const timeZone = userTimeZone || "Asia/Seoul";
+      const membersListText = Array.isArray(teamMembers) && teamMembers.length > 0
+        ? `Team Members available: ${teamMembers.map((m: any) => `${m.name}(${m.role || ""})`).join(", ")}`
+        : "5 Team Members: 김민지(PM/총괄), 박지훈(서비스 기획), 이수아(UI/UX 디자인), 정도윤(풀스택 개발), 최서연(마케팅/운영)";
 
       // Check Gemini API key
       const apiKey = process.env.GEMINI_API_KEY;
@@ -42,8 +45,10 @@ async function startServer() {
       });
 
       const systemInstruction = `
-You are an expert schedule extraction AI assistant.
-Your task is to analyze unstructured Korean/English document text (such as meeting notes, emails, event announcements, syllabi, travel plans, shift rosters) and extract all distinct events or scheduled items.
+You are an expert collaborative schedule extraction AI assistant for a 5-member team.
+Your task is to analyze unstructured Korean/English document text (such as team meeting notes, emails, sprint plans, announcements, shift rosters) and extract all distinct events or scheduled items.
+
+${membersListText}
 
 Rules & Guidelines:
 1. Reference Today's Date: Today is ${todayStr} (Timezone: ${timeZone}). Use this reference date to resolve relative dates like "내일", "모레", "이번주 금요일", "다음주 월요일", "7/25", "매주 수요일" accurately into absolute YYYY-MM-DD or YYYY-MM-DDTHH:mm format.
@@ -53,8 +58,9 @@ Rules & Guidelines:
 5. Provide a rich but concise description with key notes related to that event.
 6. Categorize each event into one of: ["업무", "개인", "학업", "여행", "건강", "중요", "기타"].
 7. Assign priority ("high", "medium", "low").
-8. Generate 1-3 concise tags (e.g., ["회의", "주간보고"], ["수강", "중간고사"]).
-9. Provide confidence rating ("HIGH", "MEDIUM", "LOW").
+8. Generate 1-3 concise tags (e.g., ["회의", "주간보고"], ["스프린트", "디자인"]).
+9. Detect Team Member Assignees: Check if specific team member names or roles are mentioned as responsible, attendees, or owners (e.g., "담당: 지훈, 민지", "디자인팀 수아", "도윤 개발"). If "전원", "팀 전체", or everyone is involved, list all 5 member names in 'suggestedMemberNames'.
+10. Provide confidence rating ("HIGH", "MEDIUM", "LOW").
 
 Return a structured JSON object containing an array of events.
 `;
@@ -100,6 +106,11 @@ Return a structured JSON object containing an array of events.
                     },
                     priority: { type: Type.STRING, description: "high, medium, or low" },
                     confidence: { type: Type.STRING, description: "HIGH, MEDIUM, or LOW" },
+                    suggestedMemberNames: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: "Names of team members assigned or involved in this event",
+                    },
                     tags: {
                       type: Type.ARRAY,
                       items: { type: Type.STRING },

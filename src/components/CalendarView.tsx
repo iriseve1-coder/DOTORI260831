@@ -10,8 +10,9 @@ import {
   Grid,
   CalendarDays,
   Sparkles,
+  Users,
 } from "lucide-react";
-import { CalendarEvent, CategoryType, CalendarViewMode } from "../types";
+import { CalendarEvent, CategoryType, CalendarViewMode, TeamMember } from "../types";
 import {
   getCategoryStyle,
   formatTimeOnly,
@@ -21,6 +22,8 @@ import {
 
 interface CalendarViewProps {
   events: CalendarEvent[];
+  members: TeamMember[];
+  currentMemberId: string;
   onSelectEvent: (event: CalendarEvent) => void;
   onAddEventForDate: (dateStr: string) => void;
 }
@@ -29,6 +32,8 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   events,
+  members,
+  currentMemberId,
   onSelectEvent,
   onAddEventForDate,
 }) => {
@@ -94,7 +99,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     year: year,
   }));
 
-  // Next month padding days to reach multiple of 7 (35 or 42 cells)
+  // Next month padding days
   const totalCellsSoFar = prevPaddingDays.length + currentMonthDays.length;
   const targetTotalCells = totalCellsSoFar > 35 ? 42 : 35;
   const nextPaddingDays = Array.from({ length: targetTotalCells - totalCellsSoFar }, (_, i) => ({
@@ -106,7 +111,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const calendarGridDays = [...prevPaddingDays, ...currentMonthDays, ...nextPaddingDays];
 
-  // Helper to check if a grid cell represents today
   const todayObj = new Date();
   const isToday = (cellYear: number, cellMonth: number, cellDay: number) => {
     return (
@@ -259,7 +263,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   <div
                     key={cellIdx}
                     onClick={() => onAddEventForDate(cellDateStr)}
-                    className={`min-h-[100px] sm:min-h-[115px] p-2 transition-colors group relative flex flex-col ${
+                    className={`min-h-[105px] sm:min-h-[120px] p-2 transition-colors group relative flex flex-col ${
                       cellIsToday
                         ? "bg-[#18181B] ring-1 ring-inset ring-indigo-500 text-white"
                         : !cell.isCurrentMonth
@@ -302,6 +306,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <div className="flex-1 space-y-1 overflow-y-auto max-h-[85px] custom-scrollbar">
                       {cellEvents.map((evt) => {
                         const catStyle = getCategoryStyle(evt.category as CategoryType);
+                        const assignedList = members.filter((m) =>
+                          (evt.assignedMembers || []).includes(m.id)
+                        );
+
                         return (
                           <div
                             key={evt.id}
@@ -309,11 +317,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                               e.stopPropagation();
                               onSelectEvent(evt);
                             }}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-medium border truncate cursor-pointer transition-all hover:scale-[1.02] ${catStyle.bgColor} ${catStyle.textColor} ${catStyle.borderColor}`}
-                            title={`${evt.title} (${formatTimeOnly(evt.startDate)})`}
+                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border truncate cursor-pointer transition-all hover:scale-[1.02] flex items-center justify-between gap-1 ${catStyle.bgColor} ${catStyle.textColor} ${catStyle.borderColor}`}
+                            title={`${evt.title} (${formatTimeOnly(evt.startDate)}) - 입력자: ${evt.createdByName || "팀원"}${evt.updatedByName ? ` (수정: ${evt.updatedByName})` : ""} - 담당: ${assignedList.map((m) => m.name).join(", ")}`}
                           >
-                            <span className="font-semibold">{formatTimeOnly(evt.startDate)}</span> •{" "}
-                            {evt.title}
+                            <span className="truncate">
+                              <span className="font-semibold">{formatTimeOnly(evt.startDate)}</span> • {evt.title}
+                            </span>
+
+                            {/* Member Avatar Dots */}
+                            {assignedList.length > 0 && (
+                              <div className="flex -space-x-1 shrink-0">
+                                {assignedList.slice(0, 3).map((m) => (
+                                  <div
+                                    key={m.id}
+                                    className="w-3 h-3 rounded-full border border-[#09090B] flex items-center justify-center text-[7px] text-white font-bold"
+                                    style={{ backgroundColor: m.colorHex }}
+                                  >
+                                    {m.name.slice(0, 1)}
+                                  </div>
+                                ))}
+                                {assignedList.length > 3 && (
+                                  <div className="w-3 h-3 rounded-full bg-zinc-700 text-[6px] text-white flex items-center justify-center">
+                                    +
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -378,21 +407,45 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       ) : (
                         dayEvents.map((evt) => {
                           const catStyle = getCategoryStyle(evt.category as CategoryType);
+                          const assignedList = members.filter((m) =>
+                            (evt.assignedMembers || []).includes(m.id)
+                          );
+
                           return (
                             <div
                               key={evt.id}
                               onClick={() => onSelectEvent(evt)}
-                              className={`p-2 rounded-xl border text-xs cursor-pointer transition-all hover:scale-[1.01] ${catStyle.bgColor} ${catStyle.borderColor}`}
+                              className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all hover:scale-[1.01] ${catStyle.bgColor} ${catStyle.borderColor}`}
                             >
-                              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${catStyle.badgeBg}`}>
-                                {evt.category}
-                              </span>
-                              <h4 className="font-bold text-white mt-1 truncate">
+                              <div className="flex items-center justify-between">
+                                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${catStyle.badgeBg}`}>
+                                  {evt.category}
+                                </span>
+
+                                {/* Member avatars */}
+                                <div className="flex -space-x-1">
+                                  {assignedList.map((m) => (
+                                    <div
+                                      key={m.id}
+                                      className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] text-white font-bold shadow-xs"
+                                      style={{ backgroundColor: m.colorHex }}
+                                      title={m.name}
+                                    >
+                                      {m.name.slice(0, 1)}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <h4 className="font-bold text-white mt-1.5 truncate">
                                 {evt.title}
                               </h4>
-                              <p className="text-[11px] text-zinc-400 mt-0.5">
-                                {formatTimeOnly(evt.startDate)}
-                              </p>
+                              <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-1 pt-1 border-t border-[#27272A]/60">
+                                <span>{formatTimeOnly(evt.startDate)}</span>
+                                <span className="text-zinc-500 font-medium truncate max-w-[80px]" title={`입력: ${evt.createdByName || "팀원"}`}>
+                                  ✍️ {evt.createdByName || "팀원"}
+                                </span>
+                              </div>
                             </div>
                           );
                         })
@@ -415,12 +468,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   등록된 일정이 없습니다.
                 </p>
                 <p className="text-xs text-zinc-500">
-                  왼쪽 파싱 창에 문서 내용을 붙여넣고 AI 파싱을 실행해보세요!
+                  문서 내용을 붙여넣고 AI 파싱을 실행해보세요!
                 </p>
               </div>
             ) : (
               sortedEvents.map((evt) => {
                 const catStyle = getCategoryStyle(evt.category as CategoryType);
+                const assignedList = members.filter((m) =>
+                  (evt.assignedMembers || []).includes(m.id)
+                );
+
                 return (
                   <div
                     key={evt.id}
@@ -446,10 +503,42 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             {evt.description}
                           </p>
                         )}
+                        {/* Creator / Modifier info badge */}
+                        <div className="flex items-center space-x-2 text-[11px] text-zinc-500 mt-1.5">
+                          <span>입력자: <strong className="text-zinc-300">{evt.createdByName || "팀원"}</strong></span>
+                          {evt.updatedByName && (
+                            <>
+                              <span>•</span>
+                              <span className="text-cyan-400">수정자: {evt.updatedByName}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 text-xs text-zinc-400 shrink-0 self-end sm:self-center">
+                    <div className="flex items-center space-x-2.5 text-xs text-zinc-400 shrink-0 self-end sm:self-center">
+                      {/* Assigned Member Avatars */}
+                      {assignedList.length > 0 && (
+                        <div className="flex items-center space-x-1 bg-[#09090B] border border-[#3F3F46] px-2.5 py-1 rounded-lg">
+                          <Users className="w-3.5 h-3.5 text-indigo-400 mr-0.5" />
+                          <div className="flex -space-x-1.5">
+                            {assignedList.map((m) => (
+                              <div
+                                key={m.id}
+                                className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-2xs"
+                                style={{ backgroundColor: m.colorHex }}
+                                title={`${m.name} (${m.role})`}
+                              >
+                                {m.name.slice(0, 1)}
+                              </div>
+                            ))}
+                          </div>
+                          <span className="text-[11px] text-zinc-300 font-medium ml-1">
+                            {assignedList.map((m) => m.name).join(", ")}
+                          </span>
+                        </div>
+                      )}
+
                       {evt.location && (
                         <div className="flex items-center space-x-1 bg-[#09090B] border border-[#3F3F46] px-2.5 py-1 rounded-lg">
                           <MapPin className="w-3.5 h-3.5 text-rose-400" />

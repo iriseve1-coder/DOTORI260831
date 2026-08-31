@@ -84,8 +84,42 @@ export function getPriorityBadge(priority: PriorityType) {
   }
 }
 
+export function getMemberById(members: { id: string }[], id: string) {
+  return members.find((m) => m.id === id);
+}
+
 // Local storage management
 const STORAGE_KEY = "doctocal_events_v1";
+const ACTIVE_MEMBER_KEY = "doctocal_active_member_id";
+const ROOM_CODE_KEY = "doctocal_room_code";
+
+export function loadActiveMemberId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_MEMBER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveActiveMemberId(memberId: string): void {
+  try {
+    localStorage.setItem(ACTIVE_MEMBER_KEY, memberId);
+  } catch {}
+}
+
+export function loadSavedRoomCode(): string | null {
+  try {
+    return localStorage.getItem(ROOM_CODE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveRoomCode(roomCode: string): void {
+  try {
+    localStorage.setItem(ROOM_CODE_KEY, roomCode);
+  } catch {}
+}
 
 export function loadEventsFromStorage(): CalendarEvent[] {
   try {
@@ -219,6 +253,56 @@ export function downloadICSFile(events: CalendarEvent[], filename = "doctocal-sc
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// Format full date & time with year, month, day, hour, min
+export function formatFullDateTimeKorean(dateStr?: string): string {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const hours = d.getHours();
+    const minutes = d.getMinutes();
+    const ampm = hours >= 12 ? "오후" : "오전";
+    const displayHour = hours % 12 || 12;
+    const minStr = minutes < 10 ? `0${minutes}` : `${minutes}`;
+    return `${year}년 ${month}월 ${day}일 ${ampm} ${displayHour}:${minStr}`;
+  } catch {
+    return dateStr || "";
+  }
+}
+
+// Generate concise change summary between old and new event states
+export function getChangesSummary(oldEvt: CalendarEvent, newEvt: Partial<CalendarEvent>): string {
+  const changes: string[] = [];
+  if (newEvt.title && newEvt.title !== oldEvt.title) {
+    changes.push(`제목 변경`);
+  }
+  if (newEvt.startDate && newEvt.startDate !== oldEvt.startDate) {
+    changes.push(`시작 시간 변경`);
+  }
+  if (newEvt.endDate && newEvt.endDate !== oldEvt.endDate) {
+    changes.push(`종료 시간 변경`);
+  }
+  if (newEvt.category && newEvt.category !== oldEvt.category) {
+    changes.push(`카테고리 변경(${oldEvt.category}→${newEvt.category})`);
+  }
+  if (newEvt.priority && newEvt.priority !== oldEvt.priority) {
+    changes.push(`우선순위 변경`);
+  }
+  if (newEvt.location !== undefined && newEvt.location !== oldEvt.location) {
+    changes.push(`장소 변경`);
+  }
+  if (newEvt.description !== undefined && newEvt.description !== oldEvt.description) {
+    changes.push(`상세 메모 수정`);
+  }
+  if (newEvt.assignedMembers && JSON.stringify(newEvt.assignedMembers.slice().sort()) !== JSON.stringify((oldEvt.assignedMembers || []).slice().sort())) {
+    changes.push(`담당 팀원 변경`);
+  }
+  return changes.length > 0 ? changes.join(", ") : "세부 내용 수정";
 }
 
 // Generate Google Calendar Link

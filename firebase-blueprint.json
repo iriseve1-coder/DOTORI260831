@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "calendars": {
+      "title": "Shared Calendar",
+      "description": "Shared calendar space for 5 team members",
+      "fields": {
+        "name": { "type": "string", "description": "Calendar name" },
+        "roomCode": { "type": "string", "description": "Room share code" },
+        "members": { "type": "array", "description": "Array of 5 team members" },
+        "updatedAt": { "type": "string", "description": "Last update ISO timestamp" }
+      }
+    },
+    "events": {
+      "title": "Calendar Event",
+      "description": "Event item synchronized across all 5 team members",
+      "fields": {
+        "calendarId": { "type": "string", "description": "Shared calendar room ID" },
+        "title": { "type": "string", "description": "Event title" },
+        "startDate": { "type": "string", "description": "Start ISO datetime" },
+        "endDate": { "type": "string", "description": "End ISO datetime" },
+        "allDay": { "type": "boolean", "description": "Whether all day" },
+        "location": { "type": "string", "description": "Location or online link" },
+        "description": { "type": "string", "description": "Detailed notes" },
+        "category": { "type": "string", "description": "Category" },
+        "priority": { "type": "string", "description": "Priority level" },
+        "assignedMembers": { "type": "array", "description": "Assigned member IDs" },
+        "createdById": { "type": "string", "description": "Creator member ID" },
+        "createdByName": { "type": "string", "description": "Creator member name" },
+        "tags": { "type": "array", "description": "Event tags" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      }
+    },
+    "activityLogs": {
+      "title": "Activity Log",
+      "description": "Realtime activity record for team members",
+      "fields": {
+        "calendarId": { "type": "string", "description": "Calendar room ID" },
+        "memberId": { "type": "string", "description": "Member who performed action" },
+        "memberName": { "type": "string", "description": "Member name" },
+        "memberColor": { "type": "string", "description": "Member badge color" },
+        "action": { "type": "string", "description": "Action type: create, update, delete, parse, restore, revert" },
+        "eventTitle": { "type": "string", "description": "Target event title" },
+        "timestamp": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "trash": {
+      "title": "Trash / Deleted Events",
+      "description": "Deleted calendar events that can be restored",
+      "fields": {
+        "originalEventId": { "type": "string", "description": "Original event ID" },
+        "eventData": { "type": "object", "description": "Full event data payload" },
+        "deletedById": { "type": "string", "description": "Member who deleted the event" },
+        "deletedByName": { "type": "string", "description": "Name of member who deleted" },
+        "deletedByColor": { "type": "string", "description": "Color hex of member who deleted" },
+        "deletedAt": { "type": "string", "description": "Deletion ISO timestamp" }
+      }
+    },
+    "revisions": {
+      "title": "Event Version Revisions",
+      "description": "Previous versions of events for rollback and change tracking",
+      "fields": {
+        "calendarId": { "type": "string", "description": "Calendar room ID" },
+        "eventId": { "type": "string", "description": "Target event ID" },
+        "eventTitle": { "type": "string", "description": "Event title" },
+        "snapshot": { "type": "object", "description": "Event state snapshot" },
+        "modifiedById": { "type": "string", "description": "Member who modified" },
+        "modifiedByName": { "type": "string", "description": "Name of member who modified" },
+        "modifiedByColor": { "type": "string", "description": "Color of member who modified" },
+        "modifiedAt": { "type": "string", "description": "Modification ISO timestamp" },
+        "changesSummary": { "type": "string", "description": "Summary of changes" }
+      }
+    }
+  }
+}

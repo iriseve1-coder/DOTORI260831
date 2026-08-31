@@ -11,13 +11,17 @@ import {
   Edit2,
   PlusCircle,
   Sparkles,
+  Users,
+  Check,
 } from "lucide-react";
-import { CalendarEvent, CategoryType, PriorityType } from "../types";
+import { CalendarEvent, CategoryType, PriorityType, TeamMember } from "../types";
 import { getCategoryStyle, getPriorityBadge, formatDateKorean } from "../utils/calendarUtils";
 
 interface ParsedResultModalProps {
   summary: string;
-  parsedEvents: Omit<CalendarEvent, "id" | "createdAt">[];
+  parsedEvents: (Omit<CalendarEvent, "id" | "createdAt"> & { suggestedMemberNames?: string[] })[];
+  members: TeamMember[];
+  currentMemberId: string;
   onConfirmAdd: (selectedEvents: Omit<CalendarEvent, "id" | "createdAt">[]) => void;
   onClose: () => void;
 }
@@ -25,12 +29,42 @@ interface ParsedResultModalProps {
 export const ParsedResultModal: React.FC<ParsedResultModalProps> = ({
   summary,
   parsedEvents: initialParsedEvents,
+  members,
+  currentMemberId,
   onConfirmAdd,
   onClose,
 }) => {
-  const [events, setEvents] = useState<Omit<CalendarEvent, "id" | "createdAt">[]>(initialParsedEvents);
+  const currentMember = members.find((m) => m.id === currentMemberId);
+
+  // Map initial suggestedMemberNames into assignedMembers
+  const formattedInitial = initialParsedEvents.map((evt) => {
+    let assigned = evt.assignedMembers || [];
+    if (assigned.length === 0 && evt.suggestedMemberNames && evt.suggestedMemberNames.length > 0) {
+      // match names
+      const matched = members.filter((m) =>
+        evt.suggestedMemberNames!.some(
+          (name) => m.name.includes(name) || name.includes(m.name) || (m.role && name.includes(m.role))
+        )
+      );
+      if (matched.length > 0) {
+        assigned = matched.map((m) => m.id);
+      }
+    }
+    if (assigned.length === 0) {
+      // default: assign to all 5 or current member
+      assigned = [currentMemberId];
+    }
+    return {
+      ...evt,
+      assignedMembers: assigned,
+      createdById: currentMemberId,
+      createdByName: currentMember?.name || "팀원",
+    };
+  });
+
+  const [events, setEvents] = useState<Omit<CalendarEvent, "id" | "createdAt">[]>(formattedInitial);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
-    new Set(initialParsedEvents.map((_, i) => i))
+    new Set(formattedInitial.map((_, i) => i))
   );
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Omit<CalendarEvent, "id" | "createdAt"> | null>(null);
@@ -51,6 +85,33 @@ export const ParsedResultModal: React.FC<ParsedResultModalProps> = ({
     } else {
       setSelectedIndices(new Set(events.map((_, i) => i)));
     }
+  };
+
+  const toggleMemberForEvent = (eventIndex: number, memberId: string) => {
+    setEvents((prev) => {
+      const updated = [...prev];
+      const currentAssigned = updated[eventIndex].assignedMembers || [];
+      const nextAssigned = currentAssigned.includes(memberId)
+        ? currentAssigned.filter((id) => id !== memberId)
+        : [...currentAssigned, memberId];
+      updated[eventIndex] = {
+        ...updated[eventIndex],
+        assignedMembers: nextAssigned.length > 0 ? nextAssigned : [currentMemberId],
+      };
+      return updated;
+    });
+  };
+
+  const assignAllMembersToEvent = (eventIndex: number) => {
+    setEvents((prev) => {
+      const updated = [...prev];
+      const isAll = (updated[eventIndex].assignedMembers || []).length === members.length;
+      updated[eventIndex] = {
+        ...updated[eventIndex],
+        assignedMembers: isAll ? [currentMemberId] : members.map((m) => m.id),
+      };
+      return updated;
+    });
   };
 
   const handleDelete = (index: number) => {
@@ -99,9 +160,9 @@ export const ParsedResultModal: React.FC<ParsedResultModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                AI 일정 파싱 결과
+                AI 파싱 완료 · 5인 공유 캘린더 등록
                 <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-900/60 text-indigo-300 border border-indigo-500/30">
-                  {events.length}개 발견
+                  {events.length}개 추출됨
                 </span>
               </h2>
               <p className="text-xs text-zinc-400 mt-0.5">
@@ -133,13 +194,13 @@ export const ParsedResultModal: React.FC<ParsedResultModalProps> = ({
             {selectedIndices.size === events.length ? "전체 해제" : "전체 선택"} ({selectedIndices.size}/{events.length})
           </button>
 
-          <span className="text-zinc-500">
-            달력에 등록하기 전 날짜와 내용을 확인 후 선택해주세요.
+          <span className="text-zinc-500 text-[11px]">
+            각 일정의 5인 팀원 배정 상태를 확인 후 [캘린더에 등록]을 누르세요.
           </span>
         </div>
 
         {/* Extracted Events List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 space-y-3.5 custom-scrollbar">
           {events.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">
               <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-400" />
@@ -151,6 +212,7 @@ export const ParsedResultModal: React.FC<ParsedResultModalProps> = ({
               const catStyle = getCategoryStyle(evt.category as CategoryType);
               const priStyle = getPriorityBadge(evt.priority as PriorityType);
               const isEditing = editingIndex === idx;
+              const assignedIds = evt.assignedMembers || [];
 
               if (isEditing && editForm) {
                 return (
@@ -289,8 +351,55 @@ export const ParsedResultModal: React.FC<ParsedResultModalProps> = ({
                       {evt.title}
                     </h3>
 
+                    {/* 5-Member Assignee Selector Chips inside Card */}
+                    <div
+                      className="mt-2.5 p-2 rounded-lg bg-[#141417] border border-[#27272A] space-y-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-zinc-400 font-semibold flex items-center gap-1">
+                          <Users className="w-3 h-3 text-indigo-400" />
+                          담당 배정 ({assignedIds.length}명)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => assignAllMembersToEvent(idx)}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                        >
+                          {assignedIds.length === members.length ? "나만 배정" : "5명 전체 배정"}
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1">
+                        {members.map((m) => {
+                          const isAssigned = assignedIds.includes(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => toggleMemberForEvent(idx, m.id)}
+                              className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[11px] transition-colors border ${
+                                isAssigned
+                                  ? "bg-[#27272A] border-indigo-500/60 text-white font-semibold"
+                                  : "bg-[#09090B] border-transparent text-zinc-500 hover:text-zinc-300"
+                              }`}
+                            >
+                              <div
+                                className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0"
+                                style={{ backgroundColor: m.colorHex }}
+                              >
+                                {m.name.slice(0, 1)}
+                              </div>
+                              <span>{m.name}</span>
+                              {isAssigned && <Check className="w-2.5 h-2.5 text-indigo-400" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {/* Date/Time and Location */}
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-zinc-400">
+                    <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-zinc-400">
                       <div className="flex items-center space-x-1.5">
                         <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                         <span className="truncate">
@@ -369,7 +478,7 @@ export const ParsedResultModal: React.FC<ParsedResultModalProps> = ({
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold inline-flex items-center space-x-2 accent-glow transition-all"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>선택한 {selectedIndices.size}개 일정 달력에 등록</span>
+            <span>선택한 {selectedIndices.size}개 일정 5인 캘린더에 등록</span>
           </button>
         </div>
 

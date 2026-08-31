@@ -1,6 +1,6 @@
 {
-  "name": "DocToCal - 문서 일정 파싱 달력",
-  "description": "문서나 이메일 텍스트를 붙여넣으면 AI가 일정을 파싱하여 달력에 자동으로 추가해주는 스마트 스케줄러",
+  "name": "DocToCal - 5인 공유형 스마트 캘린더",
+  "description": "5인 협업 공유 캘린더, 입력자/수정자 표기, 삭제된 일정 복구 및 과거 버전 되돌리기 지원 AI 스케줄러",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
